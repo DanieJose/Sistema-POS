@@ -1,0 +1,479 @@
+@port = 3000
+@baseUrl = http://localhost:{{port}}/api
+@token = REPLACE_WITH_BEARER_TOKEN
+@productId = 1
+@variantId = 1
+@customerId = 1
+@saleId = 1
+@invoiceId = 1
+@goalId = 1
+@notificationId = REPLACE_NOTIFICATION_ID
+
+### Health check (esperado: 200, JSON { "ok": true })
+GET {{baseUrl}}/health
+Accept: application/json
+
+### Login admin dev (esperado: 200, JSON con ok=true, token, user)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@pos.local",
+  "password": "Admin123!"
+}
+
+### Me (pega aquí el token retornado por login)
+### Esperado: 200, JSON con ok=true y user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Store settings GET (esperado: 200)
+### Si no existía fila, el backend debe crearla con defaults y devolverlos.
+### Validar defaults mínimos:
+### - data.currency = "HNL"
+### - data.isv_rate = 0.15 (o "0.15" si tu driver serializa DECIMAL como string)
+### - data.prices_include_isv = true
+### - data.layaway_days_max = 8
+### - data.loyalty_allow_pay_with_points = true
+### - data.loyalty_allow_mixed_payment = true
+### - data.loyalty_topup_allowed_methods = ["cash","card","transfer"]
+GET {{baseUrl}}/store-settings
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### CUSTOMERS - Crear cliente (crea wallet automático)
+### Esperado: 201, ok=true, data.wallet.balance_points=0
+POST {{baseUrl}}/customers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "full_name": "Maria Lopez",
+  "phone": "9999-0001",
+  "email": "maria.lopez@example.local"
+}
+
+### CUSTOMERS - Obtener wallet
+### Ajusta {{customerId}} con el id retornado
+GET {{baseUrl}}/customers/{{customerId}}/wallet
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### LOYALTY - Topup con efectivo
+### Esperado: 201, wallet balance_points incrementa, tx type=TOPUP
+POST {{baseUrl}}/customers/{{customerId}}/topup
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "amount_lempiras": 500,
+  "payment_method": "cash"
+}
+
+### LOYALTY - Topup con transferencia (requiere reference)
+POST {{baseUrl}}/customers/{{customerId}}/topup
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "amount_lempiras": 300,
+  "payment_method": "transfer",
+  "reference": "TRX-REF-12345"
+}
+
+### LOYALTY - Redeem quote (L1000 usando 200 puntos)
+### Esperado: 200, points_approved=200, lempiras_discount=200, remaining_to_pay=800 (si point_value=1)
+POST {{baseUrl}}/loyalty/redeem-quote
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "customer_id": {{customerId}},
+  "sale_total_lempiras": 1000,
+  "points_to_use": 200
+}
+
+### LOYALTY - Redeem commit (200 puntos)
+### Esperado: 200, tx type=REDEEM y wallet balance disminuye
+POST {{baseUrl}}/loyalty/redeem-commit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "customer_id": {{customerId}},
+  "points_to_use": 200
+}
+
+### LOYALTY - Verificar wallet balance final
+GET {{baseUrl}}/customers/{{customerId}}/wallet
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### LOYALTY - Verificar transacciones (paginado simple)
+GET {{baseUrl}}/customers/{{customerId}}/loyalty-transactions?page=1&limit=20
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### PRODUCTS - Crear producto (ADMIN/SUPERVISOR)
+### Esperado: 201, ok=true, data.id
+POST {{baseUrl}}/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "Labial Mate Rojo",
+  "category": "maquillaje",
+  "description": "Labial de larga duración",
+  "is_active": true
+}
+
+### PRODUCTS - Crear variante (ADMIN/SUPERVISOR)
+### Ajusta {{productId}} con el id retornado del request anterior
+### Esperado: 201, ok=true, data.id
+POST {{baseUrl}}/products/{{productId}}/variants
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sku": "LAB-ROJO-001",
+  "tone": "Rojo clásico",
+  "cost": 85.00,
+  "price": 150.00,
+  "stock": 10,
+  "is_active": true
+}
+
+### PRODUCTS - Listar productos (filtros opcionales: category, search, is_active)
+### Esperado: 200, ok=true, data[]
+GET {{baseUrl}}/products?category=maquillaje&search=labial&is_active=true
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### PRODUCTS - Detalle producto (incluye variants + images)
+### Ajusta {{productId}}
+### Esperado: 200, ok=true, data.variants[], data.images[]
+GET {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### VARIANTS - Ajuste de stock (SUPERVISOR o ADMIN)
+### Ajusta {{variantId}} con el id retornado al crear variante
+### Esperado: 200, ok=true y stock_adjustment.delta/reason
+PATCH {{baseUrl}}/variants/{{variantId}}/stock
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "delta": 3,
+  "reason": "Conteo físico inicial"
+}
+
+### IMAGES - Subir imagen (ADMIN/SUPERVISOR)
+### Reemplaza la ruta local del archivo en la línea de contenido binario.
+### Esperado: 201, ok=true, data.image_url = /uploads/<filename>
+POST {{baseUrl}}/products/{{productId}}/images
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=Boundary123
+Accept: application/json
+
+--Boundary123
+Content-Disposition: form-data; name="sort_order"
+
+0
+--Boundary123
+Content-Disposition: form-data; name="image"; filename="producto.jpg"
+Content-Type: image/jpeg
+
+< ./producto.jpg
+--Boundary123--
+
+### CASH - Abrir caja
+### Esperado: 201, status OPEN
+POST {{baseUrl}}/cash/open
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "opening_cash_amount": 1000
+}
+
+### CASH - Sesión actual
+GET {{baseUrl}}/cash/current
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### SALES - Crear venta con efectivo
+### Requiere variant existente y caja abierta
+### Esperado: 201, status COMPLETED
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "items": [
+    { "variant_id": {{variantId}}, "quantity": 1, "line_discount_amount": 0 }
+  ],
+  "sale_discount_total": 0,
+  "issue_invoice": false,
+  "payments": [
+    { "method": "cash", "amount_lempiras": 150.00 }
+  ]
+}
+
+### SALES - Crear venta con tarjeta (ver recargo si card_surcharge_rate > 0 en store_settings)
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "items": [
+    { "variant_id": {{variantId}}, "quantity": 1 }
+  ],
+  "issue_invoice": false,
+  "payments": [
+    { "method": "card", "amount_lempiras": 150.00 }
+  ]
+}
+
+### SALES - Venta mixta (cash + points)
+### Requiere customer con puntos suficientes (usar topups + redeem quote previos)
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "customer_id": {{customerId}},
+  "items": [
+    { "variant_id": {{variantId}}, "quantity": 1 }
+  ],
+  "issue_invoice": false,
+  "payments": [
+    { "method": "cash", "amount_lempiras": 50.00 },
+    { "method": "points", "points_used": 100 }
+  ]
+}
+
+### SALES - Venta con emisión automática de factura (issue_invoice=true)
+### Requiere CAI vigente configurado y que el monto pagado cubra total final (incluido recargo/ISV según settings)
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "customer_id": {{customerId}},
+  "issue_invoice": true,
+  "items": [
+    { "variant_id": {{variantId}}, "quantity": 1 }
+  ],
+  "payments": [
+    { "method": "cash", "amount_lempiras": 150.00 }
+  ]
+}
+
+### BILLING_HN - Emitir factura para una venta completada
+### Ajusta {{saleId}} con una venta COMPLETED; requiere CAI configurado vigente en store-settings
+POST {{baseUrl}}/billing/invoices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sale_id": {{saleId}}
+}
+
+### BILLING_HN - Intentar emitir segunda vez (debe fallar)
+POST {{baseUrl}}/billing/invoices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sale_id": {{saleId}}
+}
+
+### BILLING_HN - Consultar factura por venta
+GET {{baseUrl}}/billing/invoices/by-sale/{{saleId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### BILLING_HN - Descargar PDF (MVP protegido por authJwt)
+### Ajusta {{invoiceId}} con el id retornado al emitir factura
+GET {{baseUrl}}/billing/invoices/{{invoiceId}}/pdf
+Authorization: Bearer {{token}}
+
+### BILLING_HN - Probar CAI vencido (debe fallar)
+### 1) Cambia temporalmente cai_expires_at a fecha pasada
+PUT {{baseUrl}}/store-settings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cai": "CAI-DEMO-2026-ABC123",
+  "range_from": "001-001-01-00000001",
+  "range_to": "001-001-01-00001000",
+  "cai_expires_at": "2020-01-01T00:00:00.000Z"
+}
+
+### 2) Intentar emitir (esperado: error CAI expirado)
+POST {{baseUrl}}/billing/invoices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "sale_id": {{saleId}}
+}
+
+### REPORTS - Financial summary
+GET {{baseUrl}}/reports/financial-summary?date_from=2026-01-01&date_to=2026-12-31
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### REPORTS - Inventory investment
+GET {{baseUrl}}/reports/inventory-investment
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### REPORTS - Loyalty summary
+GET {{baseUrl}}/reports/loyalty-summary
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### GOALS - Create goal
+POST {{baseUrl}}/goals
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "type": "MONTHLY",
+  "target_amount": 50000,
+  "start_date": "2026-02-01",
+  "end_date": "2026-02-28"
+}
+
+### GOALS - List goals
+GET {{baseUrl}}/goals
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### GOALS - Progress
+### Ajusta {{goalId}} con el id retornado al crear meta
+GET {{baseUrl}}/goals/progress?goal_id={{goalId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### REPORTS - Dashboard
+GET {{baseUrl}}/reports/dashboard
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### NOTIFICATIONS - Listar (filtra unread)
+GET {{baseUrl}}/notifications?read=false&limit=20
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### NOTIFICATIONS - Summary
+GET {{baseUrl}}/notifications/summary
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### AUTOMATION - Ejecutar low-stock manual (ADMIN)
+POST {{baseUrl}}/automation/run/low-stock
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### AUTOMATION - Ejecutar layaway manual (ADMIN)
+POST {{baseUrl}}/automation/run/layaway
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### AUTOMATION - Ejecutar CAI manual (ADMIN)
+POST {{baseUrl}}/automation/run/cai
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### NOTIFICATIONS - Marcar una como leída
+### Ajusta {{notificationId}} con un _id real retornado por listado
+PATCH {{baseUrl}}/notifications/{{notificationId}}/read
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### NOTIFICATIONS - Marcar todas como leídas (ADMIN/SUPERVISOR)
+PATCH {{baseUrl}}/notifications/read-all
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### SALES - Listar ventas
+GET {{baseUrl}}/sales?status=COMPLETED
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### SALES - Detalle venta
+### Ajusta {{saleId}} con el id retornado
+GET {{baseUrl}}/sales/{{saleId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### SALES - Anular venta (SUPERVISOR/ADMIN)
+### Esperado: 200, status VOIDED y reverso de stock/puntos
+POST {{baseUrl}}/sales/{{saleId}}/void
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### CASH - Cerrar caja
+POST {{baseUrl}}/cash/close
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "closing_cash_counted": 1000,
+  "notes": "Cierre de prueba"
+}
+
+### Store settings PUT (solo ADMIN) - actualizar datos clave
+### Esperado: 200 y JSON con data actualizado
+PUT {{baseUrl}}/store-settings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "trade_name": "POS Suite Demo",
+  "phone": "+50499990000",
+  "isv_rate": 0.15,
+  "cai": "CAI-DEMO-2026-ABC123",
+  "range_from": "000-001-01-00000001",
+  "range_to": "000-001-01-00001000",
+  "cai_expires_at": "2026-12-31T23:59:59.000Z"
+}
+
+### Store settings GET (post-update)
+### Validar que refleje los cambios del PUT:
+### - data.trade_name = "POS Suite Demo"
+### - data.phone = "+50499990000"
+### - data.isv_rate = 0.15 (o "0.15")
+### - data.cai = "CAI-DEMO-2026-ABC123"
+### - data.range_from = "000-001-01-00000001"
+### - data.range_to = "000-001-01-00001000"
+### - data.cai_expires_at = "2026-12-31T23:59:59.000Z" (o formato ISO equivalente)
+GET {{baseUrl}}/store-settings
+Authorization: Bearer {{token}}
+Accept: application/json
