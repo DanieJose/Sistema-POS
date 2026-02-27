@@ -4,7 +4,6 @@ let apiClient: ReturnType<typeof axios.create> | null = null
 
 export function useApi() {
   const config = useRuntimeConfig()
-  const token = useCookie<string | null>('pos_token', { default: () => null, sameSite: 'lax' })
 
   if (!apiClient) {
     apiClient = axios.create({
@@ -12,9 +11,16 @@ export function useApi() {
     })
 
     apiClient.interceptors.request.use((request) => {
-      if (token.value) {
+      const auth = useAuthStore()
+      let token = auth.token
+
+      if (process.client && !token) {
+        token = localStorage.getItem('pos_auth_token')
+      }
+
+      if (token) {
         request.headers = request.headers || {}
-        request.headers.Authorization = `Bearer ${token.value}`
+        request.headers.Authorization = `Bearer ${token}`
       }
       return request
     })

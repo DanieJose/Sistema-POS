@@ -25,7 +25,7 @@ function serializeUser(userInstance) {
 
 const userInclude = [{ model: Role, as: 'role', attributes: ['id', 'name'] }];
 
-router.use(authJwt, requireRole(['ADMIN']));
+router.use(authJwt, requireRole(['admin']));
 
 router.get('/', async (req, res) => {
   const users = await User.findAll({

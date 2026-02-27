@@ -23,6 +23,10 @@ function serializeCurrentUser(userInstance) {
   };
 }
 
+function errorResponse(res, status, code, message) {
+  return res.status(status).json({ ok: false, code, message });
+}
+
 router.post(
   '/login',
   [
@@ -39,17 +43,17 @@ router.post(
     });
 
     if (!user) {
-      return res.status(401).json({ ok: false, message: 'Invalid credentials' });
+      return errorResponse(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      return res.status(401).json({ ok: false, message: 'Invalid credentials' });
+      return errorResponse(res, 401, 'AUTH_INVALID_CREDENTIALS', 'Invalid credentials');
     }
 
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      return res.status(500).json({ ok: false, message: 'JWT_SECRET is not configured' });
+      return errorResponse(res, 500, 'AUTH_CONFIG_ERROR', 'JWT_SECRET is not configured');
     }
 
     const token = jwt.sign(
@@ -65,14 +69,16 @@ router.post(
 
     return res.json({
       ok: true,
-      token,
-      user: serializeCurrentUser(user),
+      data: {
+        token,
+        user: serializeCurrentUser(user),
+      },
     });
   }
 );
 
 router.get('/me', authJwt, async (req, res) => {
-  return res.json({ ok: true, user: req.user });
+  return res.json({ ok: true, data: req.user });
 });
 
 module.exports = router;
