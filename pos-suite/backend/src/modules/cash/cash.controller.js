@@ -3,10 +3,17 @@ const { serializeCashMovement, serializeCashSession } = require('./cash.serializ
 
 function handleCashError(error, res) {
   if (!error?.code) return false;
-  if (['CASH_ALREADY_OPEN', 'CASH_NOT_OPEN'].includes(error.code)) {
-    res.status(400).json({ ok: false, message: error.message });
+
+  if (error.code === 'CASH_ALREADY_OPEN') {
+    res.status(409).json({ ok: false, code: error.code, message: error.message });
     return true;
   }
+
+  if (error.code === 'CASH_NOT_OPEN') {
+    res.status(400).json({ ok: false, code: error.code, message: error.message });
+    return true;
+  }
+
   return false;
 }
 

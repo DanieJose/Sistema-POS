@@ -10,7 +10,8 @@
     "seed:products": "node src/scripts/seed_products.js",
     "env:check": "node src/scripts/env_check.js",
     "db:sync": "node src/scripts/db_sync.js",
-    "db:reset": "node src/scripts/db_reset.js"
+    "db:reset": "node src/scripts/db_reset.js",
+    "seed:cash": "node src/scripts/seed_cash.js"
   },
   "keywords": [],
   "author": "",
