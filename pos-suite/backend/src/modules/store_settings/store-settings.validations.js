@@ -21,7 +21,12 @@ const booleanFields = [
   'multi_branch_enabled',
 ];
 
-const integerFields = ['layaway_days_max', 'loyalty_earn_rate_points', 'low_stock_threshold'];
+const integerFields = [
+  'layaway_days_max',
+  'loyalty_earn_rate_points',
+  'low_stock_threshold',
+  'correlativo_actual',
+];
 
 const stringFields = [
   'trade_name',
@@ -34,12 +39,33 @@ const stringFields = [
   'range_from',
   'range_to',
   'establishment_code',
+  'point_emission',
   'ticket_legend',
   'currency',
 ];
 
 const updateStoreSettingsValidations = [
   body('email').optional({ nullable: true }).isEmail().withMessage('email must be valid'),
+  body('rtn')
+    .optional({ nullable: true })
+    .matches(/^[0-9-]+$/)
+    .withMessage('rtn must contain only numbers and dashes'),
+  body('phone')
+    .optional({ nullable: true })
+    .matches(/^[0-9+()\-\s]+$/)
+    .withMessage('phone must contain only valid phone characters'),
+  body('cai')
+    .optional({ nullable: true })
+    .matches(/^[0-9A-Za-z-]+$/)
+    .withMessage('cai must be alphanumeric'),
+  body('range_from')
+    .optional({ nullable: true })
+    .matches(/^.*\d+$/)
+    .withMessage('range_from must end with numeric correlativo'),
+  body('range_to')
+    .optional({ nullable: true })
+    .matches(/^.*\d+$/)
+    .withMessage('range_to must end with numeric correlativo'),
   body('cai_expires_at')
     .optional({ nullable: true })
     .isISO8601()

@@ -9,16 +9,16 @@ function handleBillingError(error, res) {
     'CAI_EXPIRED',
     'INVOICE_ALREADY_EXISTS',
     'CAI_RANGE_INVALID',
-    'CAI_RANGE_EXHAUSTED',
+    'RANGE_EXCEEDED',
     'SALE_NOT_INVOICEABLE',
     'CREDIT_AMOUNT_INVALID',
   ];
   if (badRequest.includes(error.code)) {
-    res.status(400).json({ ok: false, message: error.message });
+    res.status(400).json({ ok: false, code: error.code, message: error.message });
     return true;
   }
   if (['SALE_NOT_FOUND', 'INVOICE_NOT_FOUND'].includes(error.code)) {
-    res.status(404).json({ ok: false, message: error.message });
+    res.status(404).json({ ok: false, code: error.code, message: error.message });
     return true;
   }
   return false;

@@ -7,7 +7,10 @@ const { sequelize } = require('../../config/mysql');
 const { createAuditEvent } = require('../audit/audit.service');
 const { Customer } = require('../loyalty/models');
 const { ProductVariant, Product } = require('../products/models');
-const { getOrCreateStoreSettings } = require('../store_settings/store-settings.service');
+const {
+  getOrCreateStoreSettings,
+  validateSarOrThrow,
+} = require('../store_settings/store-settings.service');
 const { Sale, SaleItem, SalePayment } = require('../sales/models');
 const { CreditNote, Invoice, InvoiceSequence } = require('./models');
 
@@ -44,20 +47,6 @@ async function loadSaleForBilling(saleId, transaction) {
     transaction,
     lock: transaction ? transaction.LOCK.UPDATE : undefined,
   });
-}
-
-function validateBillingSettings(settings) {
-  if (!settings.cai || !settings.range_from || !settings.range_to || !settings.cai_expires_at) {
-    const e = new Error('CAI configuration is incomplete in store settings');
-    e.code = 'CAI_CONFIG_MISSING';
-    throw e;
-  }
-  const expiry = new Date(settings.cai_expires_at);
-  if (new Date() > expiry) {
-    const e = new Error('CAI expired');
-    e.code = 'CAI_EXPIRED';
-    throw e;
-  }
 }
 
 function resolveCustomerSnapshot(sale, payload) {
@@ -143,7 +132,7 @@ async function issueInvoiceForSale(payload, actorUserId) {
         throw e;
       }
 
-      validateBillingSettings(settings);
+      validateSarOrThrow(settings);
       const from = splitCorrelative(settings.range_from);
       const to = splitCorrelative(settings.range_to);
       if (!from || !to || from.prefix !== to.prefix || from.width !== to.width) {
@@ -162,8 +151,8 @@ async function issueInvoiceForSale(payload, actorUserId) {
 
       const nextInt = Number(seq.current_int) + 1;
       if (nextInt > to.numeric) {
-        const e = new Error('Rango CAI agotado');
-        e.code = 'CAI_RANGE_EXHAUSTED';
+        const e = new Error('El correlativo está fuera del rango CAI');
+        e.code = 'RANGE_EXCEEDED';
         throw e;
       }
       const invoiceNumber = formatCorrelative(from.prefix, from.width, nextInt);

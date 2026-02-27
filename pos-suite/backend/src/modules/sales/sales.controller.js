@@ -56,11 +56,11 @@ async function createSale(req, res) {
         'CAI_EXPIRED',
         'INVOICE_ALREADY_EXISTS',
         'CAI_RANGE_INVALID',
-        'CAI_RANGE_EXHAUSTED',
+        'RANGE_EXCEEDED',
         'SALE_NOT_INVOICEABLE',
       ].includes(error.code)
     ) {
-      return res.status(400).json({ ok: false, message: error.message });
+      return res.status(400).json({ ok: false, code: error.code, message: error.message });
     }
     throw error;
   }
