@@ -1,0 +1,36 @@
+@baseUrl = http://localhost:3000/api
+@token = REPLACE_WITH_JWT
+
+### Obtener sesión actual
+GET {{baseUrl}}/cash/current
+Authorization: Bearer {{token}}
+
+### Abrir caja
+POST {{baseUrl}}/cash/open
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "opening_amount": 1000
+}
+
+### Registrar movimiento OUT
+POST {{baseUrl}}/cash/movements
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "type": "OUT",
+  "amount": 50,
+  "reason": "Compra insumos"
+}
+
+### Cerrar caja
+POST {{baseUrl}}/cash/close
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "counted_cash": 940,
+  "notes": "Arqueo nocturno"
+}
