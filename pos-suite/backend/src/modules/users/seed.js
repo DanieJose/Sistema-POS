@@ -2,7 +2,7 @@ const bcrypt = require('bcrypt');
 
 const { Role, User } = require('./models');
 
-const DEFAULT_ROLES = ['ADMIN', 'SUPERVISOR', 'CASHIER'];
+const DEFAULT_ROLES = ['admin', 'cajero', 'supervisor'];
 
 async function seedRoles() {
   for (const roleName of DEFAULT_ROLES) {
@@ -18,9 +18,9 @@ async function seedDevAdmin() {
     return;
   }
 
-  const adminRole = await Role.findOne({ where: { name: 'ADMIN' } });
+  const adminRole = await Role.findOne({ where: { name: 'admin' } });
   if (!adminRole) {
-    throw new Error('ADMIN role not found during seed');
+    throw new Error('admin role not found during seed');
   }
 
   const existingAdmin = await User.findOne({

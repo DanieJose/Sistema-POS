@@ -19,7 +19,7 @@ require('../modules/billing_hn/models');
 require('../modules/goals/goal.model');
 
 async function seedRoles() {
-  const roleNames = ['ADMIN', 'SUPERVISOR', 'CASHIER'];
+  const roleNames = ['admin', 'cajero', 'supervisor'];
   for (const name of roleNames) {
     await Role.findOrCreate({
       where: { name },

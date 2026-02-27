@@ -6,14 +6,18 @@ async function authJwt(req, res, next) {
   const authHeader = req.headers.authorization || '';
 
   if (!authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ ok: false, message: 'Missing bearer token' });
+    return res
+      .status(401)
+      .json({ ok: false, code: 'AUTH_MISSING_BEARER', message: 'Missing bearer token' });
   }
 
   const token = authHeader.slice(7).trim();
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
-    return res.status(500).json({ ok: false, message: 'JWT_SECRET is not configured' });
+    return res
+      .status(500)
+      .json({ ok: false, code: 'AUTH_CONFIG_ERROR', message: 'JWT_SECRET is not configured' });
   }
 
   try {
@@ -24,7 +28,9 @@ async function authJwt(req, res, next) {
     });
 
     if (!user) {
-      return res.status(401).json({ ok: false, message: 'Invalid token user' });
+      return res
+        .status(401)
+        .json({ ok: false, code: 'AUTH_INVALID_TOKEN_USER', message: 'Invalid token user' });
     }
 
     req.user = {
@@ -39,7 +45,9 @@ async function authJwt(req, res, next) {
 
     return next();
   } catch (error) {
-    return res.status(401).json({ ok: false, message: 'Invalid or expired token' });
+    return res
+      .status(401)
+      .json({ ok: false, code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' });
   }
 }
 

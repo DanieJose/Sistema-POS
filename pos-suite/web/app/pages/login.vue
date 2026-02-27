@@ -26,11 +26,7 @@ async function submit() {
   errorMessage.value = ''
   try {
     const { data } = await api.post('/auth/login', form)
-    auth.setSession(data.token, data.user)
-    if (process.client) {
-      localStorage.setItem('pos_auth_token', data.token)
-      localStorage.setItem('pos_auth_user', JSON.stringify(data.user))
-    }
+    auth.setSession(data.data.token, data.data.user)
     await router.push('/dashboard')
   } catch (error: any) {
     errorMessage.value = error?.response?.data?.message || 'No se pudo iniciar sesión'
